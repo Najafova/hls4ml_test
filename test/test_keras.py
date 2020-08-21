@@ -2,15 +2,18 @@ import pytest
 import hls4ml
 import tensorflow as tf 
 import numpy as np
-from tensorflow.keras.layers import Input, Dense, Activation, Conv1D, Conv2D, Reshape, ELU, LeakyReLU, ThresholdedReLU, PReLU, BatchNormalization
-
-activation_functions = ["relu", 'elu']
-
+from tensorflow.keras.layers import Input, Dense, Activation, Conv1D, Conv2D, \
+                                    Reshape, ELU, LeakyReLU, ThresholdedReLU, \
+                                    PReLU, BatchNormalization, Add, Subtract, \
+                                    Multiply, Average, Maximum, Minimum, \
+                                    MaxPooling1D, MaxPooling2D, AveragePooling1D, \
+                                    AveragePooling2D
+                                    
 # Input, ***Reshape, 
 # ***Dense, BinaryDense, TernaryDense
 # ***Activation, ***LeakyReLU, ***ThresholdedReLU, ***ELU, ***PReLU
 # BatchNormalization
-# Conv1D, Conv2D
+# ***Conv1D, ***Conv2D
 # Merge layers - Add, Subtract, Multiply, Average, Maximum, Minimum, Concatenate
 # MaxPooling1D, MaxPooling2D, AveragePooling1D, AveragePooling2D
 
