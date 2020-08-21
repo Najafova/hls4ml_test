@@ -173,42 +173,61 @@ def test_activation(activation_functions):
     assert list(hls_model.get_layers())[1].attributes["n_out"] == list(model.layers[0].output_shape)[1] 
 
 
-# TODO both conv layer tests
-# keras_convolutional_layers = [Conv1D, Conv2D]
-# @pytest.mark.parametrize("convolutional_functions")
-# def test_convolutoional():
-#     model = tf.keras.models.Sequential()
-#     input_shape = (4, 10, 128)
-#     model.add(Conv1D(32, 3, 
-#                      activation='relu', 
-#                      input_shape=input_shape[1:]))
-#     model.add(Activation(activation='relu', name='Activaion'))
+# DONE
+keras_conv1d = [Conv1D]
+@pytest.mark.parametrize("conv1d", keras_conv1d)
+def test_conv1d(conv1d):
+    model = tf.keras.models.Sequential()
+    input_shape = (4, 10, 128)
+    model.add(conv1d(32, 3, 
+                     input_shape=input_shape[1:]))
+    model.add(Activation(activation='relu'))
 
-#     hls_model = hls4ml.converters.convert_from_keras_model(model)
+    hls_model = hls4ml.converters.convert_from_keras_model(model)
 
-#     assert len(model.layers) + 2 == len(hls_model.get_layers())
-#     assert list(hls_model.get_layers())[1].attributes["class_name"] == model.layers[0].__class__.__name__ 
-#     assert list(hls_model.get_layers())[1].attributes["class_name"] == "Conv1D"
+    assert len(model.layers) + 1 == len(hls_model.get_layers()) 
+    assert list(hls_model.get_layers())[0].attributes['class_name'] == "InputLayer"
+    assert list(hls_model.get_layers())[1].attributes['name'] == model.layers[0]._name
 
-    # atributlara baxmaq uchun
-    # print(list(hls_model.get_layers())[1].attributes)
-    # print(model.layers[0].__dict__.keys())
+    if conv1d == 'Conv1D':
+      assert list(hls_model.get_layers())[2].attributes['class_name'] == 'Conv1D'
+    assert list(hls_model.get_layers())[0].attributes['input_shape'] == list(model.layers[0]._batch_input_shape[1:])
+    assert list(hls_model.get_layers())[1].attributes['filt_width'] == model.layers[0].kernel_size[0]
+    assert list(hls_model.get_layers())[1].attributes['n_filt'] == model.layers[0].filters
+    assert list(hls_model.get_layers())[1].attributes["n_in"] == model.layers[0]._batch_input_shape[1] 
+    assert list(hls_model.get_layers())[1].attributes['activation'] == str(model.layers[0].activation).split()[1]
+    assert list(hls_model.get_layers())[1].attributes["n_out"] == list(model.layers[0].output_shape)[1] 
+    assert list(hls_model.get_layers())[2].attributes["activation"] == str(model.layers[1].activation).split()[1]
 
 
-# TODO both conv layer tests
-# def test_conv2d():
-#     model = tf.keras.models.Sequential()
-#     input_shape = (4, 28, 28, 3)
-#     model.add(Conv2D(2,3, 
-#                      activation='relu', 
-#                      input_shape=input_shape[1:]))
-#     model.add(Activation(activation='relu', name='Activaion'))
+# DONE
+keras_conv2d = [Conv2D]
+@pytest.mark.parametrize("conv2d", keras_conv2d)
+def test_conv2d(conv2d):
+    model = tf.keras.models.Sequential()
+    input_shape = (4, 28, 28, 3)
+    model.add(conv2d(2,12, 
+                     input_shape=input_shape[1:]))
+    model.add(Activation(activation='relu'))
 
-#     hls_model = hls4ml.converters.convert_from_keras_model(model)
+    hls_model = hls4ml.converters.convert_from_keras_model(model)
 
-#     assert len(model.layers) + 2 == len(hls_model.get_layers())
-#     assert list(hls_model.get_layers())[1].attributes["class_name"] == model.layers[0].__class__.__name__ 
-#     assert list(hls_model.get_layers())[1].attributes["class_name"] == "Conv2D"
+    assert len(model.layers) + 1 == len(hls_model.get_layers()) 
+    assert list(hls_model.get_layers())[0].attributes['class_name'] == "InputLayer"
+    assert list(hls_model.get_layers())[1].attributes['name'] == model.layers[0]._name
+
+    if conv2d == 'Conv2D':
+      assert list(hls_model.get_layers())[2].attributes['class_name'] == 'Conv2D'
+    assert list(hls_model.get_layers())[0].attributes['input_shape'] == list(model.layers[0]._batch_input_shape[1:])
+    assert list(hls_model.get_layers())[1].attributes['filt_width'] == model.layers[0].kernel_size[0]
+    assert list(hls_model.get_layers())[1].attributes['n_filt'] == model.layers[0].filters
+    assert list(hls_model.get_layers())[1].attributes['activation'] == str(model.layers[0].activation).split()[1]
+    assert list(hls_model.get_layers())[2].attributes['activation'] == str(model.layers[1].activation).split()[1]
+    assert list(hls_model.get_layers())[1].attributes['data_format'] == model.layers[0].data_format
+    assert list(hls_model.get_layers())[1].attributes['in_height'] == model.layers[0]._batch_input_shape[2]
+    assert list(hls_model.get_layers())[1].attributes['in_width'] == model.layers[0]._batch_input_shape[1]
+    assert list(hls_model.get_layers())[1].attributes['n_filt'] == model.layers[0].filters
+
 
 
 # # TODO batch key error
