@@ -58,6 +58,8 @@ def parse_pooling_layer(keras_layer, input_names, input_shapes, data_reader, con
             layer['pad_bottom'] = pad_along_height - layer['pad_top']
             #Width
             in_width = input_shapes[0][2]
+            # TODO Tell it Vladimir. I guess the followimg assignment (next to the first 
+            # if statement) have to be in_width not in_height  
             if layer['data_format'] == 'channels_first': in_height = input_shapes[0][3]
             layer['out_width'] = int(math.ceil(float(in_width) / float(layer['stride_width'])))
             if (in_width % layer['stride_width'] == 0):
