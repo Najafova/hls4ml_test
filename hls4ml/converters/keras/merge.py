@@ -8,16 +8,25 @@ def parse_merge_layer(keras_layer, input_names, input_shapes, data_reader, confi
 
     layer = parse_default_keras_layer(keras_layer, input_names)
 
+    # 
     layer['op'] = layer['class_name'].lower()
     if layer['class_name'] == 'Concatenate':
+        # 
         rank = len(input_shapes[0][1:])
         if rank > 3:
             raise Exception('ERROR: Concatenation of tensors with rank > 3 is not yet supported.')
+        # 
         layer['op'] = layer['class_name'].lower() + '{}d'.format(rank)
+        
+        # DONE
         layer['axis'] = keras_layer['config']['axis']
         #TODO handle output shape
+    
     else:
+        # DONE
         layer['class_name'] = 'Merge'
+        
+        # DONE
     if len(layer['inputs']) > 2:
         raise Exception('ERROR: Merging more than two tensors is not yet supported.')
 

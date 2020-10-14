@@ -9,7 +9,8 @@ from tensorflow.keras.layers import Input, Dense, Activation, Conv1D, Conv2D, \
                                     Multiply, Average, Maximum, Minimum, Concatenate, \
                                     MaxPooling1D, MaxPooling2D, AveragePooling1D, \
                                     AveragePooling2D
-import math                       
+import math 
+from tensorflow.keras import backend as K                     
 # ***Input, ***Reshape, 
 # ***Dense, BinaryDense, TernaryDense
 # ***Activation, ***LeakyReLU, ***ThresholdedReLU, ***ELU, ***PReLU
@@ -32,11 +33,11 @@ import math
 # TODO Consider BinaryDense ve TernaryDense layers
 def test_dense():
     model = tf.keras.models.Sequential()
-    model.add(Dense(64, 
-              input_shape=(16,), 
+    model.add(Dense(2, 
+              input_shape=(1,), 
               name='Dense', 
               use_bias=True,
-              kernel_initializer='lecun_uniform',
+              kernel_initializer= tf.keras.initializers.RandomUniform(minval=1, maxval=10),
               bias_initializer='zeros', 
               kernel_regularizer=None,
               bias_regularizer=None,
@@ -46,8 +47,22 @@ def test_dense():
     model.add(Activation(activation='elu', name='Activation'))
     model.compile(optimizer='adam', loss='mse')
 
-    hls_model = hls4ml.converters.convert_from_keras_model(model)
+    X_input = np.random.rand(1,)
 
+    keras_prediction = model.predict(X_input)
+
+    config = hls4ml.utils.config_from_keras_model(model)
+
+    # config['Model']['Precision'] = 'ap_fixed<32,12>'
+
+    hls_model = hls4ml.converters.convert_from_keras_model(model, hls_config=config)
+
+    hls_model.compile()
+
+    hls_prediction = hls_model.predict(X_input)
+
+    assert round(np.average(np.subtract(np.abs(keras_prediction), np.abs(hls_prediction)))) < 3
+    
     assert len(model.layers) + 1 == len(hls_model.get_layers())
     assert list(hls_model.get_layers())[0].attributes['class_name'] == "InputLayer"
     assert list(hls_model.get_layers())[1].attributes["class_name"] == model.layers[0]._name
@@ -57,19 +72,41 @@ def test_dense():
     assert list(hls_model.get_layers())[1].attributes['n_out'] == model.layers[0].output_shape[1:][0]
     assert list(hls_model.get_layers())[2].attributes['activation'] == str(model.layers[1].activation).split()[1]
     assert list(hls_model.get_layers())[1].attributes['activation'] == str(model.layers[0].activation).split()[1]
+    
+    
+# # DONE
+# def test_reshape():
+#   model = tf.keras.models.Sequential()
+#   model.add(Dense(12, 
+#             input_shape=(1,), 
+#             name='Dense', 
+#             use_bias=True,
+#             kernel_initializer= tf.keras.initializers.RandomUniform(minval=1, maxval=10),
+#             bias_initializer='zeros', 
+#             kernel_regularizer=None,
+#             bias_regularizer=None,
+#             activity_regularizer=None, 
+#             kernel_constraint=None, 
+#             bias_constraint=None))
+#   model.add(Reshape((3,4)))
+#   model.add(Activation(activation="elu", name='Activation'))
+  
+#   model.compile(optimizer='adam', loss='mse')
+#   # X_input = np.random.rand(12,)
+#   X_input = np.ndarray(shape=(12,), dtype=float)
+#   keras_prediction = model.predict(X_input)
+#   config = hls4ml.utils.config_from_keras_model(model)
+#   hls_model = hls4ml.converters.convert_from_keras_model(model, hls_config=config)
+#   hls_model.compile()
+#   hls_prediction = hls_model.predict(X_input)
+
+#   # assert round(np.average(np.subtract(np.abs(keras_prediction), np.abs(hls_prediction)))) < 3
 
 
-#DONE
-def test_reshape():
-  model = tf.keras.models.Sequential()
-  model.add(Reshape((3,4), input_shape=(12,)))
-  model.add(Activation(activation="elu", name='Activation'))
-  model.compile(optimizer='adam', loss='mse')
-
-  hls_model = hls4ml.converters.convert_from_keras_model(model)
-  assert len(model.layers) + 1 == len(hls_model.get_layers())
-  assert list(hls_model.get_layers())[1].attributes["name"] == model.layers[0]._name
-  assert list(hls_model.get_layers())[1].attributes['target_shape'] == list(model.layers[0].target_shape)
+#   # hls_model = hls4ml.converters.convert_from_keras_model(model)
+#   assert len(model.layers) + 1 == len(hls_model.get_layers())
+#   assert list(hls_model.get_layers())[2].attributes["name"] == model.layers[1]._name
+#   assert list(hls_model.get_layers())[2].attributes['target_shape'] == list(model.layers[1].target_shape)
 
 
 # DONE 
@@ -78,13 +115,21 @@ keras_activation_functions = [LeakyReLU, ELU]
 def test_activation_leakyrelu_elu(activation_functions):
     model = tf.keras.models.Sequential()
     model.add(Dense(64, 
-              input_shape=(16,), 
+              input_shape=(1,), 
               name='Dense', 
               kernel_initializer='lecun_uniform', 
               kernel_regularizer=None))
     model.add(activation_functions(alpha=1.0))
 
-    hls_model = hls4ml.converters.convert_from_keras_model(model)
+    model.compile(optimizer='adam', loss='mse')
+    X_input = np.random.rand(1)
+    keras_prediction = model.predict(X_input)
+    config = hls4ml.utils.config_from_keras_model(model)
+    hls_model = hls4ml.converters.convert_from_keras_model(model, hls_config=config)
+    hls_model.compile()
+    hls_prediction = hls_model.predict(X_input)
+
+    assert round(np.average(np.subtract(np.abs(keras_prediction), np.abs(hls_prediction)))) < 3
 
     assert len(model.layers) + 1 == len(hls_model.get_layers())
 
@@ -100,13 +145,21 @@ keras_activation_functions = [ThresholdedReLU]
 def test_activation_thresholdedrelu(activation_functions):
     model = tf.keras.models.Sequential()
     model.add(Dense(64, 
-              input_shape=(16,), 
+              input_shape=(1,), 
               name='Dense', 
               kernel_initializer='lecun_uniform', 
               kernel_regularizer=None))
     model.add(activation_functions(theta=1.0))
 
-    hls_model = hls4ml.converters.convert_from_keras_model(model)
+    model.compile(optimizer='adam', loss='mse')
+    X_input = np.random.rand(1,)
+    keras_prediction = model.predict(X_input)
+    config = hls4ml.utils.config_from_keras_model(model)
+    hls_model = hls4ml.converters.convert_from_keras_model(model, hls_config=config)
+    hls_model.compile()
+    hls_prediction = hls_model.predict(X_input)
+
+    assert round(np.average(np.subtract(np.abs(keras_prediction), np.abs(hls_prediction)))) < 3 
 
     assert len(model.layers) + 1 == len(hls_model.get_layers())
 
@@ -120,13 +173,22 @@ keras_activation_functions = [PReLU]
 def test_activation_prelu(activation_functions):
     model = tf.keras.models.Sequential()
     model.add(Dense(64, 
-              input_shape=(16,), 
+              input_shape=(1,), 
               name='Dense', 
               kernel_initializer='lecun_uniform', 
               kernel_regularizer=None))
     model.add(activation_functions(alpha_initializer="zeros",))
 
-    hls_model = hls4ml.converters.convert_from_keras_model(model)
+    model.compile(optimizer='adam', loss='mse')
+    X_input = np.random.rand(1,)
+    keras_prediction = model.predict(X_input)
+    config = hls4ml.utils.config_from_keras_model(model)
+    hls_model = hls4ml.converters.convert_from_keras_model(model, hls_config=config)
+    hls_model.compile()
+    hls_prediction = hls_model.predict(X_input)
+
+    assert round(np.average(np.subtract(np.abs(keras_prediction), np.abs(hls_prediction)))) < 3
+
     assert len(model.layers) + 1 == len(hls_model.get_layers())
 
     if activation_functions == 'PReLU':
@@ -139,13 +201,22 @@ keras_activation_functions = [Activation]
 def test_activation(activation_functions):
     model = tf.keras.models.Sequential()
     model.add(Dense(64, 
-              input_shape=(16,), 
+              input_shape=(1,), 
               name='Dense', 
               kernel_initializer='lecun_uniform', 
               kernel_regularizer=None))
     model.add(Activation(activation='relu', name='Activation'))
 
-    hls_model = hls4ml.converters.convert_from_keras_model(model)
+    model.compile(optimizer='adam', loss='mse')
+    X_input = np.random.rand(1,)
+    keras_prediction = model.predict(X_input)
+    config = hls4ml.utils.config_from_keras_model(model)
+    hls_model = hls4ml.converters.convert_from_keras_model(model, hls_config=config)
+    hls_model.compile()
+    hls_prediction = hls_model.predict(X_input)
+
+    assert round(np.average(np.subtract(np.abs(keras_prediction), np.abs(hls_prediction)))) < 3
+
     assert len(model.layers) + 1 == len(hls_model.get_layers())
 
     if activation_functions == 'Activation':
@@ -171,7 +242,13 @@ def test_conv1d(conv1d, padds):
                      data_format='channels_last'))
     model.add(Activation(activation='relu'))
 
-    hls_model = hls4ml.converters.convert_from_keras_model(model)
+    model.compile(optimizer='adam', loss='mse')
+    X_input = np.random.rand(10, 128,4)
+    keras_prediction = model.predict(X_input)
+    config = hls4ml.utils.config_from_keras_model(model)
+    hls_model = hls4ml.converters.convert_from_keras_model(model, hls_config=config)
+    hls_model.compile()
+    hls_prediction = hls_model.predict(X_input)
  
     assert len(model.layers) + 2 == len(hls_model.get_layers()) 
     assert list(hls_model.get_layers())[1].attributes['name'] == model.layers[0]._name
@@ -204,84 +281,92 @@ def test_conv1d(conv1d, padds):
         assert list(hls_model.get_layers())[1].attributes['pad_right'] == 0
     
 
-# DONE
-keras_conv2d = [Conv2D]
-padds_options = ['same', 'valid']
-chans_options = ['channels_first', 'channels_last']
-@pytest.mark.parametrize("conv2d", keras_conv2d)
-@pytest.mark.parametrize("chans", chans_options)
-@pytest.mark.parametrize("padds", padds_options)
-def test_conv2d(conv2d, chans, padds):
-    model = tf.keras.models.Sequential()
-    input_shape = (4, 4, 28, 30)
-    model.add(conv2d(filters=32, 
-                     kernel_size=(4,4), 
-                     strides=(4,4), 
-                     padding=padds, 
-                     activation='relu', 
-                     input_shape=input_shape[1:], 
-                     kernel_initializer='normal', 
-                     use_bias=False,
-                     data_format=chans
-                     ))
-    model.add(Activation(activation='relu'))
+# # DONE
+# keras_conv2d = [Conv2D]
+# padds_options = ['same', 'valid']
+# chans_options = ['channels_first', 'channels_last']
+# @pytest.mark.parametrize("conv2d", keras_conv2d)
+# @pytest.mark.parametrize("chans", chans_options)
+# @pytest.mark.parametrize("padds", padds_options)
+# def test_conv2d(conv2d, chans, padds):
+#     model = tf.keras.models.Sequential()
+#     input_shape = (4, 4, 28, 30)
+#     model.add(conv2d(filters=32, 
+#                      kernel_size=(4,4), 
+#                      strides=(4,4), 
+#                      padding=padds, 
+#                      activation='relu', 
+#                      input_shape=input_shape[1:], 
+#                      kernel_initializer='normal', 
+#                      use_bias=False,
+#                      data_format=chans
+#                      ))
+#     model.add(Activation(activation='relu'))
 
-    hls_model = hls4ml.converters.convert_from_keras_model(model)
+#     model.compile(optimizer='adam', loss='mse')
+#     X_input = np.random.rand(4, 4, 28, 30)
+#     keras_prediction = model.predict(X_input)
+#     config = hls4ml.utils.config_from_keras_model(model)
+#     hls_model = hls4ml.converters.convert_from_keras_model(model, hls_config=config)
+#     hls_model.compile()
+#     hls_prediction = hls_model.predict(X_input)
 
-    assert len(model.layers) + 2 == len(hls_model.get_layers()) 
-    assert list(hls_model.get_layers())[1].attributes['name'] == model.layers[0]._name
+#     # hls_model = hls4ml.converters.convert_from_keras_model(model)
 
-    if conv2d == 'Conv2D':
-      assert list(hls_model.get_layers())[1].attributes['class_name'] == 'Conv2D'
-    assert list(hls_model.get_layers())[1].attributes['activation'] == str(model.layers[0].activation).split()[1]
-    assert list(hls_model.get_layers())[1].attributes['filt_width'] == model.layers[0].kernel_size[1]
-    assert list(hls_model.get_layers())[1].attributes['filt_height'] == model.layers[0].kernel_size[0]
-    assert list(hls_model.get_layers())[1].attributes['n_filt'] == model.layers[0].filters
-    assert list(hls_model.get_layers())[1].attributes['stride_width'] == model.layers[0].strides[1]
-    assert list(hls_model.get_layers())[1].attributes['stride_height'] == model.layers[0].strides[0]
-    assert list(hls_model.get_layers())[1].attributes['padding'] == model.layers[0].padding
-    assert list(hls_model.get_layers())[1].attributes['data_format'] == model.layers[0].data_format
+#     assert len(model.layers) + 2 == len(hls_model.get_layers()) 
+#     assert list(hls_model.get_layers())[1].attributes['name'] == model.layers[0]._name
 
-    if model.layers[0].data_format == 'channels_first':
-      assert list(hls_model.get_layers())[1].attributes['n_chan'] == model.layers[0]._batch_input_shape[1]
-      assert list(hls_model.get_layers())[1].attributes['in_height'] == model.layers[0]._batch_input_shape[2]
-      assert list(hls_model.get_layers())[1].attributes['in_width'] == model.layers[0]._batch_input_shape[3]
-      assert list(hls_model.get_layers())[1].attributes['out_height'] == model.layers[0].output_shape[2]
-      assert list(hls_model.get_layers())[1].attributes['out_width'] == model.layers[0].output_shape[3]
-    elif model.layers[0].data_format == 'channels_last':
-      assert list(hls_model.get_layers())[1].attributes['n_chan'] == model.layers[0]._batch_input_shape[3]
-      assert list(hls_model.get_layers())[1].attributes['in_height'] == model.layers[0]._batch_input_shape[1]
-      assert list(hls_model.get_layers())[1].attributes['in_width'] == model.layers[0]._batch_input_shape[2]
-      assert list(hls_model.get_layers())[1].attributes['out_height'] == model.layers[0].output_shape[1]
-      assert list(hls_model.get_layers())[1].attributes['out_width'] == model.layers[0].output_shape[2]
+#     if conv2d == 'Conv2D':
+#       assert list(hls_model.get_layers())[1].attributes['class_name'] == 'Conv2D'
+#     assert list(hls_model.get_layers())[1].attributes['activation'] == str(model.layers[0].activation).split()[1]
+#     assert list(hls_model.get_layers())[1].attributes['filt_width'] == model.layers[0].kernel_size[1]
+#     assert list(hls_model.get_layers())[1].attributes['filt_height'] == model.layers[0].kernel_size[0]
+#     assert list(hls_model.get_layers())[1].attributes['n_filt'] == model.layers[0].filters
+#     assert list(hls_model.get_layers())[1].attributes['stride_width'] == model.layers[0].strides[1]
+#     assert list(hls_model.get_layers())[1].attributes['stride_height'] == model.layers[0].strides[0]
+#     assert list(hls_model.get_layers())[1].attributes['padding'] == model.layers[0].padding
+#     assert list(hls_model.get_layers())[1].attributes['data_format'] == model.layers[0].data_format
 
-    if model.layers[0].padding =='same':
-      if model.layers[0].data_format == 'channels_first':
-        out_height	= model.layers[0].output_shape[2]
-        out_width	= model.layers[0].output_shape[3]
-        pad_along_height	= max((out_height - 1) * model.layers[0].strides[0] + model.layers[0].kernel_size[0] - model.layers[0]._batch_input_shape[2], 0)
-        pad_along_width	= max((out_width - 1) * model.layers[0].strides[1] + model.layers[0].kernel_size[1] - model.layers[0]._batch_input_shape[3], 0)
+#     if model.layers[0].data_format == 'channels_first':
+#       assert list(hls_model.get_layers())[1].attributes['n_chan'] == model.layers[0]._batch_input_shape[1]
+#       assert list(hls_model.get_layers())[1].attributes['in_height'] == model.layers[0]._batch_input_shape[2]
+#       assert list(hls_model.get_layers())[1].attributes['in_width'] == model.layers[0]._batch_input_shape[3]
+#       assert list(hls_model.get_layers())[1].attributes['out_height'] == model.layers[0].output_shape[2]
+#       assert list(hls_model.get_layers())[1].attributes['out_width'] == model.layers[0].output_shape[3]
+#     elif model.layers[0].data_format == 'channels_last':
+#       assert list(hls_model.get_layers())[1].attributes['n_chan'] == model.layers[0]._batch_input_shape[3]
+#       assert list(hls_model.get_layers())[1].attributes['in_height'] == model.layers[0]._batch_input_shape[1]
+#       assert list(hls_model.get_layers())[1].attributes['in_width'] == model.layers[0]._batch_input_shape[2]
+#       assert list(hls_model.get_layers())[1].attributes['out_height'] == model.layers[0].output_shape[1]
+#       assert list(hls_model.get_layers())[1].attributes['out_width'] == model.layers[0].output_shape[2]
 
-      elif model.layers[0].data_format == 'channels_last':
-        out_height	= model.layers[0].output_shape[1]
-        out_width	= model.layers[0].output_shape[2]
-        pad_along_height	= max((out_height - 1) * model.layers[0].strides[0] + model.layers[0].kernel_size[0] - model.layers[0]._batch_input_shape[1], 0)
-        pad_along_width	= max((out_width - 1) * model.layers[0].strides[1] + model.layers[0].kernel_size[1] - model.layers[0]._batch_input_shape[2], 0)
+#     if model.layers[0].padding =='same':
+#       if model.layers[0].data_format == 'channels_first':
+#         out_height	= model.layers[0].output_shape[2]
+#         out_width	= model.layers[0].output_shape[3]
+#         pad_along_height	= max((out_height - 1) * model.layers[0].strides[0] + model.layers[0].kernel_size[0] - model.layers[0]._batch_input_shape[2], 0)
+#         pad_along_width	= max((out_width - 1) * model.layers[0].strides[1] + model.layers[0].kernel_size[1] - model.layers[0]._batch_input_shape[3], 0)
+
+#       elif model.layers[0].data_format == 'channels_last':
+#         out_height	= model.layers[0].output_shape[1]
+#         out_width	= model.layers[0].output_shape[2]
+#         pad_along_height	= max((out_height - 1) * model.layers[0].strides[0] + model.layers[0].kernel_size[0] - model.layers[0]._batch_input_shape[1], 0)
+#         pad_along_width	= max((out_width - 1) * model.layers[0].strides[1] + model.layers[0].kernel_size[1] - model.layers[0]._batch_input_shape[2], 0)
       
-      pad_top	= pad_along_height // 2
-      pad_bottom	= pad_along_height - pad_top
-      pad_left	= pad_along_width // 2
-      pad_right	= pad_along_width - pad_left
-      assert list(hls_model.get_layers())[1].attributes['pad_top'] == pad_top
-      assert list(hls_model.get_layers())[1].attributes['pad_bottom'] == pad_bottom
-      assert list(hls_model.get_layers())[1].attributes['pad_left'] == pad_left
-      assert list(hls_model.get_layers())[1].attributes['pad_right'] == pad_right
+#       pad_top	= pad_along_height // 2
+#       pad_bottom	= pad_along_height - pad_top
+#       pad_left	= pad_along_width // 2
+#       pad_right	= pad_along_width - pad_left
+#       assert list(hls_model.get_layers())[1].attributes['pad_top'] == pad_top
+#       assert list(hls_model.get_layers())[1].attributes['pad_bottom'] == pad_bottom
+#       assert list(hls_model.get_layers())[1].attributes['pad_left'] == pad_left
+#       assert list(hls_model.get_layers())[1].attributes['pad_right'] == pad_right
 
-    elif model.layers[0].padding =='valid':
-      assert list(hls_model.get_layers())[1].attributes['pad_top'] == 0
-      assert list(hls_model.get_layers())[1].attributes['pad_bottom'] == 0
-      assert list(hls_model.get_layers())[1].attributes['pad_left'] == 0
-      assert list(hls_model.get_layers())[1].attributes['pad_right'] == 0
+#     elif model.layers[0].padding =='valid':
+#       assert list(hls_model.get_layers())[1].attributes['pad_top'] == 0
+#       assert list(hls_model.get_layers())[1].attributes['pad_bottom'] == 0
+#       assert list(hls_model.get_layers())[1].attributes['pad_left'] == 0
+#       assert list(hls_model.get_layers())[1].attributes['pad_right'] == 0
 
 
 # DONE
@@ -297,7 +382,14 @@ def test_pooling(poolings, padds, chans):
         model.add(Conv2D(1, (3,3), activation='relu', input_shape=(8, 8, 1)))
         model.add(AveragePooling2D(pool_size=(2, 2), strides=None, padding='valid', data_format=None))
         model.add(MaxPooling2D(pool_size=(2, 2), strides=None, padding='valid', data_format=None))
-        hls_model = hls4ml.converters.convert_from_keras_model(model)
+
+        model.compile(optimizer='adam', loss='mse')
+        X_input = np.random.rand(10, 128,4)
+        keras_prediction = model.predict(X_input)
+        config = hls4ml.utils.config_from_keras_model(model)
+        hls_model = hls4ml.converters.convert_from_keras_model(model, hls_config=config)
+        hls_model.compile()
+        hls_prediction = hls_model.predict(X_input)
 
         for i in range(2):
           assert list(hls_model.get_layers())[i + 3].attributes['name'] == model.layers[i + 1]._name
@@ -373,8 +465,14 @@ def test_pooling(poolings, padds, chans):
                             data_format='channels_last'))
         model.add(MaxPooling1D(pool_size=2, strides=None, padding=padds, data_format=chans))
         model.add(AveragePooling1D(pool_size=2, strides=None, padding=padds, data_format=chans))
-        
-        hls_model = hls4ml.converters.convert_from_keras_model(model)
+
+        model.compile(optimizer='adam', loss='mse')
+        X_input = np.random.rand(10, 128,4)
+        keras_prediction = model.predict(X_input)
+        config = hls4ml.utils.config_from_keras_model(model)
+        hls_model = hls4ml.converters.convert_from_keras_model(model, hls_config=config)
+        hls_model.compile()
+        hls_prediction = hls_model.predict(X_input)
 
         for i in range(2):
           assert list(hls_model.get_layers())[i + 3].attributes['name'] == model.layers[i + 1]._name
@@ -402,106 +500,3 @@ def test_pooling(poolings, padds, chans):
             assert list(hls_model.get_layers())[i + 3].attributes['pad_left'] == 0
             assert list(hls_model.get_layers())[i + 3].attributes['pad_right'] == 0
 
-
-
-
-merge_layers = [Add, Subtract, Multiply, Average, Maximum, Minimum, Concatenate]
-# @pytest.mark.parametrize('merges', merge_layers)
-# def test_merge():
-#   input1 = tf.keras.layers.Input(shape=(16,))
-#   x1 = tf.keras.layers.Dense(8, activation='relu')(input1)
-
-#   input2 = tf.keras.layers.Input(shape=(32,))
-#   x2 = tf.keras.layers.Dense(8, activation='relu')(input2)  
-
-#   added = tf.keras.layers.Add()([x1, x2])
-#   out = tf.keras.layers.Dense(4)(added)
-#   model = tf.keras.models.Model(inputs=[input1, input2], outputs=out)
-
-#   hls_model = hls4ml.converters.convert_from_keras_model(model)
-
-  # assert list(hls_model.get_layers())[6].attributes['op'] == model.layers[4]._name
-
-  # if model.layers[4]._name.lower() == 'concatenate':
-    # rank = 
-
-  # if model.layers[4]._name.lower() == 'concatenate':
-  #   rank = model.layers[4]._name
-  #   pass
-  # else:
-  #   list(hls_model.get_layers())[6].attributes['class_name'] = 'Merge'
-
-
-#   print()
-#   print(list(hls_model.get_layers())[6].attributes)
-#   print()
-#   print(model.layers[4]._name)
-
-#   # 'name': 'subtract', 'class_name': 'Merge', 'inputs': ['dense_relu', 'dense_1_relu'], 'op': 'subtract'
-  
-#   # keras model -> Input, Input, Dense, Dense, Add, Dense
-#   # hls_model   -> Input, Input, Dense, Activation, Dense, Activation, Merge, Dense
-
-# test_merge()
-
-
-
-# merge_layers = [Add, Subtract, Multiply, Average, Maximum, Minimum, Concatenate]
-# # @pytest.mark.parametrize("merges", merge_layers)
-# def test_merge():
-#     model1 = tf.keras.models.Sequential()
-#     model1.add(Dense(1, input_shape=(2,), activation='sigmoid'))
-
-#     model2 = tf.keras.models.Sequential()
-#     model2.add(Dense(1, input_shape=(1,), activation='sigmoid'))
-
-#     model = tf.keras.models.Sequential()
-#     model.add(Concatenate([model1, model2]))
-#     model.add(Activation(activation='relu'))
-
-#     hls_model = hls4ml.converters.convert_from_keras_model(model)
-
-#     # print(model.layers)
-#     # print()
-#     # print(m.__dict__.keys())
-
-#     # input_shape = (2, 3, 4)
-#     # x1 = tf.random.normal(input_shape)
-#     # print(x1)
-#     # x2 = tf.random.normal(input_shape)
-#     # print(x2)
-#     # y = tf.keras.layers.Add()([x1, x2])
-#     # print(y)
-
-
-
-# BatchNormalization layer dissappears when keras model is converted to hls model
-# keras_normalization_function = [BatchNormalization]
-# @pytest.mark.parametrize("normalization_function", keras_normalization_function)
-# def test_batch_normalization():
-#   model = tf.keras.models.Sequential()
-#   model.add(Dense(64, 
-#               input_shape=(16,), 
-#               name='Dense', 
-#               use_bias=True,
-#               kernel_initializer='lecun_uniform',
-#               bias_initializer='zeros'))
-#   model.add(BatchNormalization())
-#   model.add(Activation(activation='elu', name='Activation'))
-
-#   hls_model = hls4ml.converters.convert_from_keras_model(model)
-#   print(hls_model.get_layers())
-#   print()
-#   print(model.layers)
-
-# test_batch_normalization()
-
-
-
-# keras_dense_layers = [BinaryDense, TernaryDense]
-# @pytest.mark.parametrize("dense_layers", keras_dense_layers)
-# def test_dense_layer():
-    # model = tf.keras.models.Sequential()
-
-
-# test_dense_layer()
