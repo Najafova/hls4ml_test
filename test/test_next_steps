@@ -1,0 +1,62 @@
+- Numpy result comparison:
+Perhaps it is easier to use numpy's functions to compare the outputs. There is a function called assert_allclose. You can use it like:
+
+from numpy.testing import assert_allclose
+...
+assert_allclose(actual_output, expected_output, rtol=1e-4)
+
+instead of e.g., assert round(np.average(np.subtract(np.abs(keras_prediction), np.abs(hls_prediction)))) < 3
+
+
+- Padding
+No need to compute the padding and check against it. It will be the same. It is enough to just compare if the output was computed correctly. This can be done by comparing the output directly against Keras layers
+
+- Split conversion and prediction tests
+
+The idea is to have several sets of tests. The first would be to test conversion functionality, then later we can test if the models produce correct results. A lot of the code can be shared between the two. For example:
+
+def make_dense_model(...):
+    # this can be further parametrized
+    model = Sequential()
+    model.add(Dense(...))
+    ...
+    
+    return model
+
+def convert_dense_model(keras_model, config):
+    hls_model = ...
+    return hls_model
+
+def test_dense_conversion(...)
+    keras_model = make_dense_model(...)
+    ...
+    # do the conversion
+    hls_model = convert_dense_model(keras_model, config)
+    
+    #check if it was correctly converted
+    assert ...
+    
+
+def test_dense_prediction(...):
+    keras_model = make_dense_model(...)
+    ...
+    # do the conversion
+    hls_model = convert_dense_model(keras_model, config)
+    
+    # create some data
+    data = np....
+    
+    ...
+    keras_predicitions = keras_model.predict(data)
+    hls_predictions = hls_model.predict(data)
+    
+    assert_allclose(...)
+
+
+- Next steps
+We want to integrate these tests into the continuous integration platform. We use Jenkins. Our current pipeline is described in "Jenkinsfile" in the root of the hls4ml repository. This should be extended with these python tests. You can read about how these files are created here:
+https://www.jenkins.io/doc/book/pipeline/syntax/
+It shouldn't be difficult to change it to include these tests.
+Then I would like to finish by setting up an instance of Jenkins to test if we have correctly set it up. I don't have any documentation about this with me, but the internet is full of it. You can set it up so that it monitors one of the github forks that you or Sarun made. This is of course a task for both of you, so you will coordinate with Sarun about this. Once you do this we will have a complete testing pipeline, and we can call the project a success.
+
+Finally, a joint report should be written. A complimentary prize for both of you depends on there being a final report.
